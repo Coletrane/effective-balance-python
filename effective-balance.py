@@ -61,15 +61,21 @@ def main():
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('gmail', 'v1', http=http)
 
-    results = service.users().labels().list(userId='me').execute()
-    labels = results.get('labels', [])
+    suntrust_query = 'from:alertnotification@suntrust.com newer_than:2d'
+    suntrust_email_ids = service.users().messages().list(userId='me', q=suntrust_query).execute()
 
-    if not labels:
-        print('No labels found.')
+    if not suntrust_email_ids:
+        print('No emails from SunTrust found!')
     else:
-        print('Labels:')
-        for label in labels:
-            print(label['name'])
+        suntrust_emails = []
+        for email in suntrust_email_ids['messages']:
+            suntrust_emails.append(service.users().messages().get(userId='me', id=email['id']).excecute())
+
+            if not suntrust_emails:
+                print('No email found with id' + email['id'])
+            else:
+                for real_email in suntrust_emails:
+                    print(real_email['snippet'])
 
 if __name__ == '__main__':
     main()
