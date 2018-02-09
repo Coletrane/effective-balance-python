@@ -1,6 +1,7 @@
 from __future__ import print_function
 import httplib2
 import os
+import re
 
 from apiclient import discovery
 from oauth2client import client
@@ -51,31 +52,44 @@ def get_credentials():
         print('Storing credentials to ' + credentials_path)
     return credentials
 
-def main():
-    """Shows basic usage of the Gmail API.
-
-   Creates a Gmail API service object and outputs a list of label names
-   of the user's Gmail account.
-   """
+def get_balance_from_inbox(bank, query):
+    """Gets and returns the most current balance from SunTrust"""
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('gmail', 'v1', http=http)
 
-    suntrust_query = 'from:alertnotification@suntrust.com newer_than:2d'
-    suntrust_email_ids = service.users().messages().list(userId='me', q=suntrust_query).execute()
+    email_ids = service.users().messages().list(userId='me', q=query).execute()
 
-    if not suntrust_email_ids:
-        print('No emails from SunTrust found!')
+    if not email_ids:
+        print('No emails from ' + bank + ' found!')
     else:
-        suntrust_emails = []
-        for email in suntrust_email_ids['messages']:
-            suntrust_emails.append(service.users().messages().get(userId='me', id=email['id']).excecute())
+        emails = []
+        for email in email_ids['messages']:
+            emails.append(service.users().messages().get(userId='me', id=email['id']).execute())
 
-            if not suntrust_emails:
+            if not emails:
                 print('No email found with id' + email['id'])
             else:
-                for real_email in suntrust_emails:
-                    print(real_email['snippet'])
+                emails.sort(key=lambda email: email['internalDate'])
+                balance = re.findall(r'(?:[$]{1}[,\d]+.?\d*)', emails[0]['snippet'])
+                return balance[0]
+
+
+
+def main():
+    additional_query = ' newer_than:2d'
+    suntrust_query = 'from:alertnotification@suntrust.com' + additional_query
+    citi_query = 'from:alerts@citibank.com' + additional_query
+
+    suntrust_balance = get_balance_from_inbox("SunTrust", suntrust_query)
+    citi_balance = get_balance_from_inbox('Citi', citi_query)
+
+    # Take the $ out and make them real deal floats
+    suntrust_balance = float(suntrust_balance.replace('$', ''))
+    citi_balance = float(citi_balance.replace('$', ''))
+
+    
+    print(suntrust_balance - citi_balance)
 
 if __name__ == '__main__':
     main()
