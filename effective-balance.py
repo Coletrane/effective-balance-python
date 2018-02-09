@@ -5,11 +5,14 @@ import os
 import re
 import json
 import smtplib
+import datetime
 from email.mime.text import MIMEText
 from apiclient import discovery
+from apscheduler.schedulers.blocking import BlockingScheduler
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
+from datetime import date
 
 try:
     import argparse
@@ -96,7 +99,7 @@ def send_effective_balance_email(balance):
         print('Could not send email!')
         print(e)
 
-def main():
+def get_balance_and_send_email():
     additional_query = ' newer_than:2d'
     suntrust_query = 'from:alertnotification@suntrust.com' + additional_query
     citi_query = 'from:alerts@citibank.com' + additional_query
@@ -109,6 +112,17 @@ def main():
     citi_balance = float(citi_balance.replace('$', ''))
 
     send_effective_balance_email(suntrust_balance - citi_balance)
+
+def main():
+    # Create and configure the scheduler to run every day
+    scheduler = BlockingScheduler()
+
+    scheduler.add_job(get_balance_and_send_email,
+                      'interval',
+                      hours=23)
+
+    print('Scheduler started at ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M'))
+    scheduler.start()
 
 if __name__ == '__main__':
     main()
