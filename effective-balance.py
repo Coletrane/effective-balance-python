@@ -9,9 +9,8 @@ import datetime
 from email.mime.text import MIMEText
 from apiclient import discovery
 from apscheduler.schedulers.blocking import BlockingScheduler
-from oauth2client.client import AccessTokenCredentials, GoogleCredentials
+from oauth2client.client import GoogleCredentials
 from oauth2client import tools
-from oauth2client.file import Storage
 from os.path import join,dirname
 from dotenv import load_dotenv
 
