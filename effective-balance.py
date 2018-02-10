@@ -9,54 +9,46 @@ import datetime
 from email.mime.text import MIMEText
 from apiclient import discovery
 from apscheduler.schedulers.blocking import BlockingScheduler
-from oauth2client import client
+from oauth2client.client import AccessTokenCredentials, GoogleCredentials
 from oauth2client import tools
 from oauth2client.file import Storage
-from datetime import date
+from os.path import join,dirname
+from dotenv import load_dotenv
 
+# Parse cli arguments
 try:
     import argparse
     flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
 except ImportError:
     flags = None
 
-SCOPES = 'https://www.googleapis.com/auth/gmail.readonly'
-CLIENT_SECRET_FILE = 'client_secret.json'
-CREDS_FILE = 'credentials.json'
-GMAIL_LOGIN_FILE = 'gmail-login.json'
 APPLICATION_NAME = 'Effective Balance'
+SCOPES = 'https://www.googleapis.com/auth/gmail.readonly'
 
-def get_credentials():
-    """Gets valid user credentials from storage.
+# Load environment variables
+try:
+    load_dotenv(join(dirname(__file__), '.env'))
+    environment = 'dev'
+    print('.env file found, environment is: ' + environment)
+except IOError as e:
+    environment = 'prod'
+    print('No .env file found, environment is: ' + environment)
 
-   If nothing has been stored, or if the stored credentials are invalid,
-   the OAuth2 flow is completed to obtain the new credentials.
-
-   Returns:
-       Credentials, the obtained credential.
-   """
-
-    try:
-        credentials_file = open(CREDS_FILE, 'r')
-    except IOError:
-        credentials_file = open(CREDS_FILE, 'w')
-    finally:
-        credentials_path = os.path.join(os.getcwd(), CREDS_FILE)
-
-    store = Storage(credentials_path)
-    credentials = store.get()
-    if not credentials or credentials.invalid:
-        flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
-        flow.user_agent = APPLICATION_NAME
-        if flags:
-            credentials = tools.run_flow(flow, store, flags)
-        print('Storing credentials to ' + credentials_path)
-    return credentials
+CREDENTIALS_JSON = os.environ.get('CREDENTIALS_JSON')
+GMAIL_LOGIN_JSON = os.environ.get('GMAIL_LOGIN_JSON')
 
 def get_balance_from_inbox(bank, query):
     """Gets and returns the most current balance from SunTrust"""
 
-    credentials = get_credentials()
+    creds = json.loads(CREDENTIALS_JSON)
+    credentials = GoogleCredentials(
+        creds['access_token'],
+        creds['client_id'],
+        creds['client_secret'],
+        creds['refresh_token'],
+        creds['token_expiry'],
+        creds['token_uri'],
+        creds['user_agent'])
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('gmail', 'v1', http=http)
 
@@ -79,7 +71,7 @@ def get_balance_from_inbox(bank, query):
 def send_effective_balance_email(balance):
     """Logs into the gmail SMTPS server and sends an email with the current balance"""
 
-    gmail = json.load(open('gmail-login.json'))
+    gmail = json.loads(GMAIL_LOGIN_JSON)
 
     username = json.dumps(gmail['username']).replace('\"', '')
     password = json.dumps(gmail['password']).replace('\"', '')
@@ -120,6 +112,9 @@ def main():
     scheduler.add_job(get_balance_and_send_email,
                       'interval',
                       hours=23)
+
+    print("Testing: sending email now")
+    get_balance_and_send_email()
 
     print('Scheduler started at ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M'))
     scheduler.start()
