@@ -4,9 +4,7 @@ import httplib2
 import os
 import re
 import json
-import smtplib
 import datetime
-from email.mime.text import MIMEText
 from apiclient import discovery
 from apscheduler.schedulers.blocking import BlockingScheduler
 from oauth2client.client import GoogleCredentials
