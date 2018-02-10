@@ -25,11 +25,12 @@ APPLICATION_NAME = 'Effective Balance'
 SCOPES = 'https://www.googleapis.com/auth/gmail.readonly'
 
 # Load environment variables
-try:
-    load_dotenv(join(dirname(__file__), '.env'))
+env_file = './.env'
+if os.path.exists(env_file):
+    load_dotenv(env_file)
     environment = 'dev'
     print('.env file found, environment is: ' + environment)
-except IOError as e:
+else:
     environment = 'prod'
     print('No .env file found, environment is: ' + environment)
 
