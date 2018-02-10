@@ -4,8 +4,10 @@
 
 `$ pip install`
 
-You need 2 files for this to work:
+Create `.env` file: 
 
-`client_secret.json`: download from your Google API console
-
-`gmail-login.json`: `{"username": "<username>", "password": "<password>"}`
+`CREDENTIALS_JSON=<google-api-credentials-with-refresh-token>`
+ 
+ `AWS_ACCESS_KEY_ID=`
+ 
+ `AWS_SECRET_ACCESS_KEY=`
