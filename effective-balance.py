@@ -11,18 +11,25 @@ from apiclient import discovery
 from apscheduler.schedulers.blocking import BlockingScheduler
 from oauth2client.client import GoogleCredentials
 from oauth2client import tools
-from os.path import join,dirname
 from dotenv import load_dotenv
+import boto3
+from botocore.exceptions import ClientError
 
 # Parse cli arguments
 try:
     import argparse
+
     flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
 except ImportError:
     flags = None
 
+# Google API configs
 APPLICATION_NAME = 'Effective Balance'
 SCOPES = 'https://www.googleapis.com/auth/gmail.readonly'
+
+# AWS SES configs
+AWS_REGION = 'us-east-1'
+EMAIL = 'eloc49@gmail.com'
 
 # Load environment variables
 env_file = './.env'
@@ -35,7 +42,9 @@ else:
     print('No .env file found, environment is: ' + environment)
 
 CREDENTIALS_JSON = os.environ.get('CREDENTIALS_JSON')
-GMAIL_LOGIN_JSON = os.environ.get('GMAIL_LOGIN_JSON')
+AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY')
+AWS_SECRET_KEY = os.environ.get('AWS_SECRET_KEY')
+
 
 def get_balance_from_inbox(bank, query):
     """Gets and returns the most current balance from SunTrust"""
@@ -68,28 +77,59 @@ def get_balance_from_inbox(bank, query):
                 balance = re.findall(r'(?:[$]{1}[,\d]+.?\d*)', emails[0]['snippet'])
                 return balance[0]
 
+
 def send_effective_balance_email(balance):
     """Logs into the gmail SMTPS server and sends an email with the current balance"""
 
-    gmail = json.loads(GMAIL_LOGIN_JSON)
-
-    username = json.dumps(gmail['username']).replace('\"', '')
-    password = json.dumps(gmail['password']).replace('\"', '')
-
     balance_str = 'Effective Balance: $' + str(balance)
-    msg = MIMEText(balance_str, 'plain')
-    msg['Subject'] = balance_str
+
+    client = boto3.client('ses', region_name=AWS_REGION)
 
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.ehlo()
-        server.starttls()
-        server.login(username, password)
-        server.sendmail(username, username, msg.as_string())
+        response = client.send_email(
+            Destination={
+                'ToAddresses': [
+                    EMAIL
+                ]
+            },
+            Message={
+                'Subject': {
+                    'Charset': 'UTF-8',
+                    'Data': balance_str
+                },
+                'Body': {
+                    'Text': {
+                        'Charset': 'UTF-8',
+                        'Data': balance_str
+                    }
+                }
+            },
+            Source=EMAIL)
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+    else:
         print('Email sent!')
-    except Exception as e:
-        print('Could not send email!')
-        print(e)
+
+    # gmail = json.loads(GMAIL_LOGIN_JSON)
+    #
+    # username = json.dumps(gmail['username']).replace('\"', '')
+    # password = json.dumps(gmail['password']).replace('\"', '')
+    #
+    # balance_str = 'Effective Balance: $' + str(balance)
+    # msg = MIMEText(balance_str, 'plain')
+    # msg['Subject'] = balance_str
+    #
+    # try:
+    #     server = smtplib.SMTP('smtp.gmail.com', 587)
+    #     server.ehlo()
+    #     server.starttls()
+    #     server.login(username, password)
+    #     server.sendmail(username, username, msg.as_string())
+    #     print('Email sent!')
+    # except Exception as e:
+    #     print('Could not send email!')
+    #     print(e)
+
 
 def get_balance_and_send_email():
     additional_query = ' newer_than:2d'
@@ -105,6 +145,7 @@ def get_balance_and_send_email():
 
     send_effective_balance_email(suntrust_balance - citi_balance)
 
+
 def main():
     # Create and configure the scheduler to run every day
     scheduler = BlockingScheduler()
@@ -118,6 +159,7 @@ def main():
 
     print('Scheduler started at ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M'))
     scheduler.start()
+
 
 if __name__ == '__main__':
     main()
