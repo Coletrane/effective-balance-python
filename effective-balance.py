@@ -108,31 +108,9 @@ def send_effective_balance_email(balance):
     else:
         print('Email sent!')
 
-    # gmail = json.loads(GMAIL_LOGIN_JSON)
-    #
-    # username = json.dumps(gmail['username']).replace('\"', '')
-    # password = json.dumps(gmail['password']).replace('\"', '')
-    #
-    # balance_str = 'Effective Balance: $' + str(balance)
-    # msg = MIMEText(balance_str, 'plain')
-    # msg['Subject'] = balance_str
-    #
-    # try:
-    #     server = smtplib.SMTP('smtp.gmail.com', 587)
-    #     server.ehlo()
-    #     server.starttls()
-    #     server.login(username, password)
-    #     server.sendmail(username, username, msg.as_string())
-    #     print('Email sent!')
-    # except Exception as e:
-    #     print('Could not send email!')
-    #     print(e)
-
-
 def get_balance_and_send_email():
-    additional_query = ' newer_than:2d'
-    suntrust_query = 'from:alertnotification@suntrust.com' + additional_query
-    citi_query = 'from:alerts@citibank.com' + additional_query
+    suntrust_query = 'from:alertnotification@suntrust.com'
+    citi_query = 'from:alerts@citibank.com'
 
     suntrust_balance = get_balance_from_inbox("SunTrust", suntrust_query)
     citi_balance = get_balance_from_inbox('Citi', citi_query)
@@ -150,7 +128,7 @@ def main():
 
     scheduler.add_job(get_balance_and_send_email,
                       'interval',
-                      hours=23)
+                      hours=24)
 
     print("Testing: sending email now")
     get_balance_and_send_email()
